@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Visualizer - 5 Lakh External Values</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: black;
+            font-family: Arial, sans-serif;
+        }
+        .music {
+            width: 300px;
+            height: 200px;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .music .bar {
+            width: 12px;
+            border-radius: 10px;
+            background: white;
+            transition: height 0.1s ease;
+        }
+        .music .bar:nth-child(1), .music .bar:nth-child(10) { background: purple; }
+        .music .bar:nth-child(2), .music .bar:nth-child(9) { background: crimson; }
+        .music .bar:nth-child(3), .music .bar:nth-child(8) { background: deeppink; }
+        .music .bar:nth-child(4), .music .bar:nth-child(7) { background: orange; }
+        .music .bar:nth-child(5), .music .bar:nth-child(6) { background: gold; }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: white;
+            border: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="music" id="visualizer">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </div>
+    <button onclick="toggleVisualization()">Start/Stop Visualization</button>
+
+    <script>
+        const visualizer = document.getElementById('visualizer');
+        const barCount = 10;
+        const dataSize = 500000; // 5 lakh elements
+        let data = [];
+        let currentIndex = 0;
+        let isRunning = false;
+        let animationId;
+
+        function loadExternalData(externalData) {
+            if (Array.isArray(externalData) && externalData.length === dataSize) {
+                data = externalData;
+                console.log("Data loaded successfully");
+            } else {
+                console.error("Invalid data format or size. Expected an array of 500,000 elements.");
+            }
+        }
+
+        function updateVisualizer() {
+            const bars = visualizer.getElementsByClassName('bar');
+            if (!bars || bars.length === 0 || data.length === 0) {
+                console.error('No bars found in visualizer or no data loaded');
+                return;
+            }
+
+            let maxValue = 0;
+            let values = [];
+
+            for (let i = 0; i < barCount; i++) {
+                let value = data[(currentIndex + i) % dataSize];
+                maxValue = Math.max(maxValue, value);
+                values.push(value);
+            }
+
+            for (let i = 0; i < barCount; i++) {
+                const height = (values[i] / maxValue) * 180 + 20; // Minimum height of 20px
+                bars[i].style.height = `${height}px`;
+            }
+
+            currentIndex = (currentIndex + 1) % dataSize;
+        }
+
+        function animate() {
+            updateVisualizer();
+            if (isRunning) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+
+        function toggleVisualization() {
+            if (data.length === 0) {
+                console.error("No data loaded. Please load data before starting visualization.");
+                return;
+            }
+            isRunning = !isRunning;
+            if (isRunning) {
+                animate();
+            } else {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        // Example of how to load external data:
+        // loadExternalData(yourExternalDataArray);
+    </script>
+</body>
+</html>
