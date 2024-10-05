@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Flowing Wave Audio Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a1a;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        .visualizer {
+            width: 800px;
+            height: 300px;
+            position: relative;
+            overflow: hidden;
+            background: #000000;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+        .wave {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+        }
+        .bar {
+            flex: 1;
+            transition: height 0.1s ease;
+            margin: 0 1px;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #tempo-control {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+        }
+        #tempo-control input {
+            margin-left: 10px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="visualizer" id="visualizer"></div>
+    <button onclick="toggleVisualization()">Start/Stop Visualization</button>
+    <div id="tempo-control">
+        <label for="tempo">Tempo (ms between notes):</label>
+        <input type="range" id="tempo" name="tempo" min="100" max="1000" value="300">
+        <span id="tempo-value">300</span>
+    </div>
+
+    <script>
+        const visualizer = document.getElementById('visualizer');
+        const tempoSlider = document.getElementById('tempo');
+        const tempoValue = document.getElementById('tempo-value');
+        const dataSize = 100000; // 1 lakh elements
+        const barCount = 40;
+        let data = [];
+        let colorData = [];
+        let currentIndex = 0;
+        let isRunning = false;
+        let timeoutId;
+
+        // Web Audio API setup
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const noteFrequencies = {
+            'C': 261.63, 'D': 293.66, 'E': 329.63,
+            'F': 349.23, 'G': 392.00, 'A': 440.00, 'B': 493.88
+        };
+        const noteMapping = {
+            0: 'C', 1: 'D', 2: 'E', 3: 'F',
+            4: 'G', 5: 'A', 6: 'B', 7: 'C', 8: 'D', 9: 'E'
+        };
+        const colorMapping = {
+            'C': '#FF0000', 'D': '#FF7F00', 'E': '#FFFF00',
+            'F': '#00FF00', 'G': '#0000FF', 'A': '#4B0082', 'B': '#9400D3'
+        };
+
+        function generateRandomData() {
+            for (let i = 0; i < dataSize; i++) {
+                const value = Math.floor(Math.random() * 10);
+                data.push(value);
+                colorData.push(colorMapping[noteMapping[value]]);
+            }
+            console.log("Random data generated successfully");
+        }
+
+        function createBars() {
+            const wave = document.createElement('div');
+            wave.className = 'wave';
+            for (let i = 0; i < barCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                wave.appendChild(bar);
+            }
+            visualizer.appendChild(wave);
+        }
+
+        function playNote(note) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(noteFrequencies[note], audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function updateVisualizer() {
+            if (data.length === 0) {
+                console.error('No data loaded');
+                return;
+            }
+
+            const bars = visualizer.getElementsByClassName('bar');
+            let maxValue = 0;
+            let values = [];
+            let colors = [];
+
+            for (let i = 0; i < barCount; i++) {
+                let dataIndex = (currentIndex + i) % dataSize;
+                let value = data[dataIndex];
+                maxValue = Math.max(maxValue, value);
+                values.push(value);
+                colors.push(colorData[dataIndex]);
+            }
+
+            for (let i = 0; i < barCount; i++) {
+                const height = (values[i] / 9) * 280 + 20; // Minimum height of 20px, max value is 9
+                const bar = bars[barCount - 1 - i];
+                bar.style.height = `${height}px`;
+                bar.style.backgroundColor = colors[i];
+            }
+
+            const note = noteMapping[values[0]]; // Play note for the first bar
+            playNote(note);
+
+            currentIndex = (currentIndex + 1) % dataSize;
+
+            if (isRunning) {
+                timeoutId = setTimeout(updateVisualizer, parseInt(tempoSlider.value));
+            }
+        }
+
+        function toggleVisualization() {
+            if (data.length === 0) {
+                generateRandomData();
+            }
+            isRunning = !isRunning;
+            if (isRunning) {
+                audioContext.resume().then(() => {
+                    updateVisualizer();
+                });
+            } else {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        tempoSlider.addEventListener('input', function() {
+            tempoValue.textContent = this.value;
+        });
+
+        createBars();
+    </script>
+</body>
+</html>
