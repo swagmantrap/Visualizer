@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flowing Wave Audio Visualizer with Original Bar Styling</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: black;
+            font-family: Arial, sans-serif;
+            color: white;
+        }
+        .music {
+            width: 800px;
+            height: 300px;
+            position: relative;
+            display: inline-flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+        .bar {
+            width: 12px;
+            border-radius: 10px;
+            background: white;
+            transition: height 0.1s ease;
+            margin: 0 2px;
+        }
+        .bar:nth-child(1), .bar:nth-child(10) { background: purple; }
+        .bar:nth-child(2), .bar:nth-child(9) { background: crimson; }
+        .bar:nth-child(3), .bar:nth-child(8) { background: deeppink; }
+        .bar:nth-child(4), .bar:nth-child(7) { background: orange; }
+        .bar:nth-child(5), .bar:nth-child(6) { background: gold; }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: white;
+            border: none;
+            border-radius: 5px;
+        }
+        #tempo-control {
+            margin-top: 20px;
+            display: flex;
+            align-items: center;
+        }
+        #tempo-control input {
+            margin-left: 10px;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="music" id="visualizer"></div>
+    <button onclick="toggleVisualization()">Start/Stop Visualization</button>
+    <div id="tempo-control">
+        <label for="tempo">Tempo (ms between notes):</label>
+        <input type="range" id="tempo" name="tempo" min="100" max="1000" value="300">
+        <span id="tempo-value">300</span>
+    </div>
+
+    <script>
+        const visualizer = document.getElementById('visualizer');
+        const tempoSlider = document.getElementById('tempo');
+        const tempoValue = document.getElementById('tempo-value');
+        const dataSize = 100000; // 1 lakh elements
+        const barCount = 20; // Adjusted to match original design
+        let data = [];
+        let currentIndex = 0;
+        let isRunning = false;
+        let timeoutId;
+
+        // Web Audio API setup
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const noteFrequencies = {
+            'C': 261.63, 'D': 293.66, 'E': 329.63,
+            'F': 349.23, 'G': 392.00, 'A': 440.00, 'B': 493.88
+        };
+        const noteMapping = {
+            0: 'C', 1: 'D', 2: 'E', 3: 'F',
+            4: 'G', 5: 'A', 6: 'B', 7: 'C', 8: 'D', 9: 'E'
+        };
+
+        function generateRandomData() {
+            for (let i = 0; i < dataSize; i++) {
+                data.push(Math.floor(Math.random() * 10));
+            }
+            console.log("Random data generated successfully");
+        }
+
+        function createBars() {
+            for (let i = 0; i < barCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                visualizer.appendChild(bar);
+            }
+        }
+
+        function playNote(note) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(noteFrequencies[note], audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function updateVisualizer() {
+            if (data.length === 0) {
+                console.error('No data loaded');
+                return;
+            }
+
+            const bars = visualizer.getElementsByClassName('bar');
+            let maxValue = 0;
+            let values = [];
+
+            for (let i = 0; i < barCount; i++) {
+                let value = data[(currentIndex + i) % dataSize];
+                maxValue = Math.max(maxValue, value);
+                values.push(value);
+            }
+
+            for (let i = 0; i < barCount; i++) {
+                const height = (values[i] / maxValue) * 280 + 20; // Minimum height of 20px
+                bars[barCount - 1 - i].style.height = `${height}px`;
+            }
+
+            const note = noteMapping[values[0]]; // Play note for the first bar
+            playNote(note);
+
+            currentIndex = (currentIndex + 1) % dataSize;
+
+            if (isRunning) {
+                timeoutId = setTimeout(updateVisualizer, parseInt(tempoSlider.value));
+            }
+        }
+
+        function toggleVisualization() {
+            if (data.length === 0) {
+                generateRandomData();
+            }
+            isRunning = !isRunning;
+            if (isRunning) {
+                audioContext.resume().then(() => {
+                    updateVisualizer();
+                });
+            } else {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        tempoSlider.addEventListener('input', function() {
+            tempoValue.textContent = this.value;
+        });
+
+        createBars();
+    </script>
+</body>
+</html>
