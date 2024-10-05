@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Visualizer - 1 to 10 Array</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: black;
+            font-family: Arial, sans-serif;
+        }
+        .music {
+            width: 300px;
+            height: 200px;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .music .bar {
+            width: 12px;
+            border-radius: 10px;
+            background: white;
+            transition: height 0.5s ease;
+        }
+        .music .bar:nth-child(1), .music .bar:nth-child(10) { background: purple; }
+        .music .bar:nth-child(2), .music .bar:nth-child(9) { background: crimson; }
+        .music .bar:nth-child(3), .music .bar:nth-child(8) { background: deeppink; }
+        .music .bar:nth-child(4), .music .bar:nth-child(7) { background: orange; }
+        .music .bar:nth-child(5), .music .bar:nth-child(6) { background: gold; }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: white;
+            border: none;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="music" id="visualizer">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+    </div>
+    <button onclick="updateVisualizerWithArray()">Visualize Array 1-10</button>
+
+    <script>
+        const visualizer = document.getElementById('visualizer');
+        const barCount = 10;
+
+        function updateVisualizer(data) {
+            if (!Array.isArray(data) || data.length === 0) {
+                console.error('Invalid data provided to updateVisualizer');
+                return;
+            }
+            const bars = visualizer.getElementsByClassName('bar');
+            if (!bars || bars.length === 0) {
+                console.error('No bars found in visualizer');
+                return;
+            }
+            const maxValue = Math.max(...data);
+
+            for (let i = 0; i < Math.min(barCount, data.length); i++) {
+                const height = (data[i] / maxValue) * 180 + 20; // Minimum height of 20px
+                bars[i].style.height = `${height}px`;
+            }
+        }
+
+        function updateVisualizerWithArray() {
+            const data = [1.22, 8.04, 2.29, 3.05, 9.84, 6, 7, 8, 9, 10];
+            updateVisualizer(data);
+        }
+
+        // Initial visualization
+        updateVisualizerWithArray();
+    </script>
+</body>
+</html>
