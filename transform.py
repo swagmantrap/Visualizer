@@ -27,3 +27,10 @@ output_file = 'output.csv'
 
 result = clean_csv_data(input_file, output_file)
 print(result)
+const notemapping = [
+  { range: [1, 2], note: 'c' },
+  { range: [3, 4], note: 'd' },
+  { range: [5, 6], note: 'e' },
+  { range: [7, 8], note: 'f' },
+  { range: [9, 10], note: 'g' }
+];
