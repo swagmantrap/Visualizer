@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Flowing Wave Audio Visualizer</title>
+    <style>
+        :root {
+            --bg-color: #0a0e17;
+            --text-color: #e0e0e0;
+            --primary-color: #00aaff;
+            --secondary-color: #ff00aa;
+            --accent-color: #ffaa00;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-color);
+            font-family: 'Arial', sans-serif;
+            color: var(--text-color);
+            padding: 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 0 30px rgba(0, 170, 255, 0.2);
+        }
+        .music {
+            width: 100%;
+            height: 300px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            overflow: hidden;
+            margin-bottom: 30px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 10px;
+        }
+        .bar {
+            flex: 1;
+            margin: 0 2px;
+            border-radius: 10px 10px 0 0;
+            transition: height 0.1s ease, background-color 0.3s ease;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            background: var(--primary-color);
+            color: var(--bg-color);
+            border: none;
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        button:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 0, 170, 0.4);
+        }
+        #tempo-control {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+        #tempo-control input {
+            width: 200px;
+            -webkit-appearance: none;
+            background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+            outline: none;
+            border-radius: 15px;
+            height: 10px;
+        }
+        #tempo-control input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-color);
+            cursor: pointer;
+        }
+        #datetime-display {
+            font-size: 28px;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px var(--accent-color);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="music" id="visualizer"></div>
+        <div id="datetime-display"></div>
+        <div class="controls">
+            <button onclick="toggleVisualization()">Start/Stop Visualization</button>
+            <div id="tempo-control">
+                <label for="tempo">Tempo:</label>
+                <input type="range" id="tempo" name="tempo" min="100" max="1000" value="300">
+                <span id="tempo-value">300 ms</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const visualizer = document.getElementById('visualizer');
+        const tempoSlider = document.getElementById('tempo');
+        const tempoValue = document.getElementById('tempo-value');
+        const datetimeDisplay = document.getElementById('datetime-display');
+        const dataSize = 500000; // 5 lakh elements
+        const groupSize = 7;
+        const barCount = 20;
+        let data = [];
+        let currentIndex = 0;
+        let isRunning = false;
+        let timeoutId;
+
+        // Web Audio API setup
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const noteFrequencies = {
+            'C': 261.63, 'D': 293.66, 'E': 329.63,
+            'F': 349.23, 'G': 392.00, 'A': 440.00, 'B': 493.88
+        };
+
+        const noteMapping = [
+            { range: [1, 2], note: 'C' },
+            { range: [3, 4], note: 'D' },
+            { range: [5, 6], note: 'E' },
+            { range: [7, 8], note: 'F' },
+            { range: [9, 10], note: 'G' }
+        ];
+
+        // Date-time dictionary
+        const datetimeDict = {
+            0: "2023-05-01 09:00:00", 1: "2023-05-01 10:30:00",
+            2: "2023-05-01 12:00:00", 3: "2023-05-01 13:30:00",
+            4: "2023-05-01 15:00:00", 5: "2023-05-01 16:30:00",
+            6: "2023-05-01 18:00:00", 7: "2023-05-01 19:30:00",
+            8: "2023-05-01 21:00:00", 9: "2023-05-01 22:30:00"
+        };
+
+        function generateAndProcessData() {
+            let tempData = [];
+            for (let i = 0; i < dataSize; i++) {
+                tempData.push(Math.random() * 10); // Generate decimal numbers between 0 and 10
+            }
+            
+            // Group into sets of 7 and sort each group
+            for (let i = 0; i < tempData.length; i += groupSize) {
+                let group = tempData.slice(i, i + groupSize);
+                group.sort((a, b) => a - b);
+                data = data.concat(group);
+            }
+            
+            console.log("Data generated and processed successfully");
+        }
+
+        function createBars() {
+            for (let i = 0; i < barCount; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                visualizer.appendChild(bar);
+            }
+        }
+
+        function getNoteFromValue(value) {
+            for (let mapping of noteMapping) {
+                if (value >= mapping.range[0] && value <= mapping.range[1]) {
+                    return mapping.note;
+                }
+            }
+            return 'C'; // Default note if out of range
+        }
+
+        function playNote(note) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(noteFrequencies[note], audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        function updateVisualizer() {
+            if (data.length === 0) {
+                console.error('No data loaded');
+                return;
+            }
+
+            const bars = visualizer.getElementsByClassName('bar');
+            let maxValue = 10; // Set max value to 10 as that's our data range
+            let values = [];
+
+            for (let i = 0; i < barCount; i++) {
+                let value = data[(currentIndex + i) % data.length];
+                values.push(value);
+            }
+
+            for (let i = 0; i < barCount; i++) {
+                const height = (values[i] / maxValue) * 280 + 20; // Minimum height of 20px
+                bars[i].style.height = `${height}px`;
+                // Dynamic color based on height
+                const hue = (height / 3) % 360;
+                bars[i].style.backgroundColor = `hsl(${hue}, 100%, 50%)`;
+            }
+
+            const note = getNoteFromValue(values[0]); // Get note for the first bar
+            playNote(note);
+
+            // Update date-time display
+            const dateTimeValue = datetimeDict[Math.floor(values[0])];
+            datetimeDisplay.textContent = dateTimeValue || "No date-time available";
+
+            currentIndex = (currentIndex + 1) % data.length;
+
+            if (isRunning) {
+                timeoutId = setTimeout(updateVisualizer, parseInt(tempoSlider.value));
+            }
+        }
+
+        function toggleVisualization() {
+            if (data.length === 0) {
+                generateAndProcessData();
+            }
+            isRunning = !isRunning;
+            if (isRunning) {
+                audioContext.resume().then(() => {
+                    updateVisualizer();
+                });
+            } else {
+                clearTimeout(timeoutId);
+            }
+        }
+
+        tempoSlider.addEventListener('input', function() {
+            tempoValue.textContent = `${this.value} ms`;
+        });
+
+        createBars();
+    </script>
+</body>
+</html>
